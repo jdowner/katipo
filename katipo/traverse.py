@@ -10,11 +10,16 @@ log = logging.getLogger(__name__)
 
 class Traverse(object):
     def __init__(self, seeds):
+        self._searched = []
         self._pending = set(seeds)
 
     @property
     def pending(self):
         return self._pending
+
+    @property
+    def searched(self):
+        return self._searched
 
     @tornado.gen.coroutine
     def run(self):
@@ -23,6 +28,7 @@ class Traverse(object):
                 return
 
             url = self.pending.pop()
+            self._searched.append(url)
 
             headers = requests.head(url).headers
             if not headers.get('content-type', '').startswith('text/html'):
@@ -45,6 +51,10 @@ class Traverse(object):
                 # convert relative URLs into absolute URLs
                 if not link.startswith('http'):
                     link = urlparse.urljoin(url, link)
+
+                # if link is already searched, skip it
+                if link in self.searched:
+                    continue
 
                 # add link to pending searches
                 log.info('enqueue %s' % (link,))
