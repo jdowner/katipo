@@ -4,6 +4,8 @@ import argparse
 import logging
 import sys
 
+import zmq.eventloop.ioloop
+
 log = logging.getLogger('katipo')
 
 def main(argv=sys.argv[1:]):
@@ -17,6 +19,17 @@ def main(argv=sys.argv[1:]):
 
     for s in args.seeds:
         log.debug('seed %s' % (s,))
+
+    try:
+        log.info('katipo started')
+        loop = zmq.eventloop.ioloop.IOLoop.instance()
+        loop.start()
+    except Exception as e:
+        log.exception(e)
+    except KeyboardInterrupt, SystemExit:
+        log.info('exiting due to interrupt')
+    finally:
+        log.info('katipo stoppped')
 
 
 if __name__ == "__main__":
