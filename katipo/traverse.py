@@ -1,17 +1,20 @@
 import hashlib
 import logging
 import urlparse
+import string
 
 from bs4 import BeautifulSoup
+import nltk
 import requests
 import tornado.gen
 
 log = logging.getLogger(__name__)
 
 class Traverse(object):
-    def __init__(self, seeds):
+    def __init__(self, seeds, corpus):
         self._searched = []
         self._pending = set(seeds)
+        self._corpus = corpus
 
     @property
     def pending(self):
@@ -20,6 +23,10 @@ class Traverse(object):
     @property
     def searched(self):
         return self._searched
+
+    @property
+    def corpus(self):
+        return self._corpus
 
     @tornado.gen.coroutine
     def run(self):
@@ -38,8 +45,13 @@ class Traverse(object):
             text = requests.get(url).text
             soup = BeautifulSoup(text)
 
+            # calculate a hash for the text
             uhash = hashlib.md5(text.encode('utf-8')).hexdigest()
             log.info('hash %s %s' % (url, uhash))
+
+            # determine the score for the text
+            score = self.score(text)
+            log.info('score %s %f' % (url, score))
 
             for a in soup.find_all('a', href=True):
                 link = a['href']
@@ -61,3 +73,8 @@ class Traverse(object):
                 self._pending.add(link)
         except Exception as e:
             log.exception(e)
+
+    def score(self, text):
+        tokens = nltk.word_tokenize(text.lower())
+        tokens = {t for t in tokens if t not in string.punctuation}
+        return len(tokens.intersection(self.corpus))

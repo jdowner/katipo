@@ -14,6 +14,7 @@ def main(argv=sys.argv[1:]):
     parser = argparse.ArgumentParser()
     parser.add_argument('-v', '--verbose', action='store_true')
     parser.add_argument('-p', '--period', type=int, default=1000)
+    parser.add_argument('-c', '--corpus')
     parser.add_argument('seeds', nargs=argparse.REMAINDER)
 
     args = parser.parse_args(argv)
@@ -24,10 +25,13 @@ def main(argv=sys.argv[1:]):
         log.debug('seed %s' % (s,))
 
     try:
+        with open(args.corpus) as fd:
+            corpus = {line.strip() for line in fd if line}
+
         log.info('katipo started')
         loop = zmq.eventloop.ioloop.IOLoop.instance()
 
-        traverse = katipo.Traverse(args.seeds)
+        traverse = katipo.Traverse(args.seeds, corpus)
         traverse_cb = zmq.eventloop.ioloop.PeriodicCallback(
             traverse.run,
             args.period,
