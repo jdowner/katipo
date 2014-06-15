@@ -1,3 +1,4 @@
+import hashlib
 import logging
 import urlparse
 
@@ -17,29 +18,36 @@ class Traverse(object):
 
     @tornado.gen.coroutine
     def run(self):
-        if not self.pending:
-            return
+        try:
+            if not self.pending:
+                return
 
-        url = self.pending.pop()
+            url = self.pending.pop()
 
-        headers = requests.head(url).headers
-        if not headers.get('content-type', '').startswith('text/html'):
-            return
+            headers = requests.head(url).headers
+            if not headers.get('content-type', '').startswith('text/html'):
+                return
 
-        log.info('searching %s' % (url,))
-        text = requests.get(url).text
-        soup = BeautifulSoup(text)
-        for a in soup.find_all('a', href=True):
-            link = a['href']
+            log.info('searching %s' % (url,))
+            text = requests.get(url).text
+            soup = BeautifulSoup(text)
 
-            # ignore links in the same page
-            if link.startswith('#') or link.startswith('javascript'):
-                continue
+            uhash = hashlib.md5(text.encode('utf-8')).hexdigest()
+            log.info('hash %s %s' % (url, uhash))
 
-            # convert relative URLs into absolute URLs
-            if not link.startswith('http'):
-                link = urlparse.urljoin(url, link)
+            for a in soup.find_all('a', href=True):
+                link = a['href']
 
-            # add link to pending searches
-            log.info('enqueue %s' % (link,))
-            self._pending.add(link)
+                # ignore links in the same page
+                if link.startswith('#') or link.startswith('javascript'):
+                    continue
+
+                # convert relative URLs into absolute URLs
+                if not link.startswith('http'):
+                    link = urlparse.urljoin(url, link)
+
+                # add link to pending searches
+                log.info('enqueue %s' % (link,))
+                self._pending.add(link)
+        except Exception as e:
+            log.exception(e)
