@@ -6,11 +6,14 @@ import sys
 
 import zmq.eventloop.ioloop
 
+import katipo
+
 log = logging.getLogger('katipo')
 
 def main(argv=sys.argv[1:]):
     parser = argparse.ArgumentParser()
     parser.add_argument('-v', '--verbose', action='store_true')
+    parser.add_argument('-p', '--period', type=int, default=1000)
     parser.add_argument('seeds', nargs=argparse.REMAINDER)
 
     args = parser.parse_args(argv)
@@ -23,6 +26,14 @@ def main(argv=sys.argv[1:]):
     try:
         log.info('katipo started')
         loop = zmq.eventloop.ioloop.IOLoop.instance()
+
+        traverse = katipo.Traverse(args.seeds)
+        traverse_cb = zmq.eventloop.ioloop.PeriodicCallback(
+            traverse.run,
+            args.period,
+            io_loop=loop)
+
+        traverse_cb.start()
         loop.start()
     except Exception as e:
         log.exception(e)
