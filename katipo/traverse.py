@@ -57,7 +57,7 @@ class Traverse(object):
                     continue
 
                 # add link to pending searches
-                log.info('enqueue %s' % (link,))
+                log.debug('enqueue %s' % (link,))
                 self._pending.add(link)
         except Exception as e:
             log.exception(e)
