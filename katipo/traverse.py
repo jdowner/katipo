@@ -11,8 +11,20 @@ import tornado.gen
 log = logging.getLogger(__name__)
 
 class Traverse(object):
+    """
+    A Traverse object takes a corpus and a set of seed URLs and performs a
+    traversal of the links to URLs contained within. Because the URLs that are
+    discovered are placed in a set, the order that they are discovered in is not
+    preserved. Thus the traversal is neither a depth-first nor a breadth-first
+    traversal.
+    """
+
     def __init__(self, seeds, corpus):
-        self._searched = []
+        """
+        Creates a Traversal object.
+
+        """
+        self._searched = set()
         self._pending = set(seeds)
         self._corpus = corpus
 
@@ -28,17 +40,25 @@ class Traverse(object):
     def corpus(self):
         return self._corpus
 
+    def should_ignore(self, link):
+        return link.startswith('#') or link.startswith('javascript')
+
+    def should_search(self, url):
+        headers = requests.head(url).headers
+        return headers.get('content-type', '').startswith('text/html')
+
     @tornado.gen.coroutine
     def run(self):
+        if not self.pending:
+            return
+
         try:
-            if not self.pending:
-                return
-
+            # remove the url from the queue and add it to the 'searched' set so
+            # that it is never search again.
             url = self.pending.pop()
-            self._searched.append(url)
+            self._searched.add(url)
 
-            headers = requests.head(url).headers
-            if not headers.get('content-type', '').startswith('text/html'):
+            if not self.should_search(url):
                 return
 
             log.info('searching %s' % (url,))
@@ -57,7 +77,7 @@ class Traverse(object):
                 link = a['href']
 
                 # ignore links in the same page
-                if link.startswith('#') or link.startswith('javascript'):
+                if self.should_ignore(link):
                     continue
 
                 # convert relative URLs into absolute URLs
