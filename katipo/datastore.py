@@ -1,6 +1,9 @@
 import hashlib
+import logging
 
 import redis
+
+log = logging.getLogger(__name__)
 
 class Datastore(object):
     def __init__(self, corpus, pool=None):
@@ -28,6 +31,7 @@ class Datastore(object):
         return self._redis.smembers(self.prefix['corpus'])
 
     def add_to_searched(self, url):
+        log.debug('searched %s' % (url,))
         self._redis.sadd(self.prefix['searched'], url)
 
     def add_result(self, url, score):
@@ -46,4 +50,5 @@ class Datastore(object):
         return self._redis.spop(self.prefix['pending'])
 
     def push_pending(self, url):
+        log.debug('enqueue %s' % (url,))
         self._redis.sadd(self.prefix['pending'], url)
