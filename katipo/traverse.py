@@ -36,9 +36,6 @@ class Traverse(object):
     def corpus(self):
         return self._corpus
 
-    def should_ignore(self, link):
-        return link.startswith('#') or link.startswith('javascript')
-
     def should_search(self, url):
         headers = requests.head(url).headers
         return headers.get('content-type', '').startswith('text/html')
@@ -71,13 +68,13 @@ class Traverse(object):
             for a in soup.find_all('a', href=True):
                 link = a['href']
 
-                # ignore links in the same page
-                if self.should_ignore(link):
-                    continue
-
                 # convert relative URLs into absolute URLs
                 if not link.startswith('http'):
                     link = urlparse.urljoin(url, link)
+
+                # if the join does not work, ignore this URL
+                if not link.startswith('http'):
+                    continue
 
                 # if link is already searched, skip it
                 if self._datastore.is_searched(link):
