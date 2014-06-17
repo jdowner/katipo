@@ -8,6 +8,8 @@ import nltk
 import requests
 import tornado.gen
 
+import datastore
+
 log = logging.getLogger(__name__)
 
 class Traverse(object):
@@ -24,17 +26,11 @@ class Traverse(object):
         Creates a Traversal object.
 
         """
-        self._searched = set()
-        self._pending = set(seeds)
         self._corpus = corpus
+        self._datastore = datastore.Datastore(corpus)
 
-    @property
-    def pending(self):
-        return self._pending
-
-    @property
-    def searched(self):
-        return self._searched
+        for s in seeds:
+            self._datastore.push_pending(s)
 
     @property
     def corpus(self):
@@ -49,29 +45,28 @@ class Traverse(object):
 
     @tornado.gen.coroutine
     def run(self):
-        if not self.pending:
-            return
-
         try:
             # remove the url from the queue and add it to the 'searched' set so
             # that it is never search again.
-            url = self.pending.pop()
-            self._searched.add(url)
+            url = self._datastore.pop_pending()
+            if url is None:
+                return
+
+            self._datastore.add_to_searched(url)
 
             if not self.should_search(url):
                 return
 
-            log.info('searching %s' % (url,))
             text = requests.get(url).text
             soup = BeautifulSoup(text)
 
             # calculate a hash for the text
             uhash = hashlib.md5(text.encode('utf-8')).hexdigest()
-            log.info('hash %s %s' % (url, uhash))
 
             # determine the score for the text
             score = self.score(text)
-            log.info('score %s %f' % (url, score))
+            self._datastore.add_result(url, score)
+            log.info('score %d %s' % (score, url))
 
             for a in soup.find_all('a', href=True):
                 link = a['href']
@@ -85,12 +80,11 @@ class Traverse(object):
                     link = urlparse.urljoin(url, link)
 
                 # if link is already searched, skip it
-                if link in self.searched:
+                if self._datastore.is_searched(link):
                     continue
 
                 # add link to pending searches
-                log.debug('enqueue %s' % (link,))
-                self._pending.add(link)
+                self._datastore.push_pending(link)
         except Exception as e:
             log.exception(e)
 
