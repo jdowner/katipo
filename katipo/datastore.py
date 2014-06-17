@@ -15,7 +15,7 @@ class Datastore(object):
         self._redis = redis.Redis(connection_pool=pool)
 
         self._prefix = {term: '%s:%s' % (self._corpus_id, term) for term in
-                ('corpus','searched', 'pending', 'scored')}
+                ('corpus','searched', 'pending', 'score')}
 
         self._redis.sadd(self.prefix['corpus'], corpus)
 
@@ -35,7 +35,7 @@ class Datastore(object):
         self._redis.sadd(self.prefix['searched'], url)
 
     def add_result(self, url, score):
-        self._redis.hmset(self.prefix['scored'], {'url': url, 'score':score})
+        self._redis.set('%s:%s' % (self.prefix['score'], url), score)
 
     def pending(self):
         return self._redis.smembers(self.prefix['pending'])
