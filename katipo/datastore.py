@@ -39,6 +39,9 @@ class Datastore(object):
     def searched(self):
         return self._redis.smembers(self.prefix['searched'])
 
+    def is_searched(self, url):
+        return self._redis.sismember(self.prefix['searched'], url)
+
     def pop_pending(self):
         return self._redis.spop(self.prefix['pending'])
 
