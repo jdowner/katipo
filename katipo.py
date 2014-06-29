@@ -1,10 +1,9 @@
 #!/usr/bin/env python
 
 import argparse
+import concurrent.futures as cf
 import logging
 import sys
-
-import zmq.eventloop.ioloop
 
 import katipo
 
@@ -13,7 +12,7 @@ log = logging.getLogger('katipo')
 def main(argv=sys.argv[1:]):
     parser = argparse.ArgumentParser()
     parser.add_argument('-v', '--verbose', action='store_true')
-    parser.add_argument('-p', '--period', type=int, default=1000)
+    parser.add_argument('-w', '--workers', type=int)
     parser.add_argument('-c', '--corpus')
     parser.add_argument('seeds', nargs=argparse.REMAINDER)
 
@@ -21,24 +20,27 @@ def main(argv=sys.argv[1:]):
 
     log.setLevel(logging.DEBUG if args.verbose else logging.INFO)
 
-    for s in args.seeds:
-        log.debug('seed %s' % (s,))
-
     try:
         with open(args.corpus) as fd:
             corpus = {line.strip() for line in fd if line}
 
         log.info('katipo started')
-        loop = zmq.eventloop.ioloop.IOLoop.instance()
 
-        traverse = katipo.Traverse(args.seeds, corpus)
-        traverse_cb = zmq.eventloop.ioloop.PeriodicCallback(
-            traverse.run,
-            args.period,
-            io_loop=loop)
+        datastore = katipo.Datastore()
+        for seed in args.seeds:
+            datastore.push_pending(seed)
 
-        traverse_cb.start()
-        loop.start()
+        futures = []
+        with cf.ProcessPoolExecutor(max_workers=args.workers) as executor:
+            while True:
+                while len(futures) < args.workers:
+                    traverse = katipo.Traverse(corpus)
+                    futures.append(executor.submit(traverse))
+
+                cf.wait(futures, return_when=cf.FIRST_COMPLETED)
+                futures = [f for f in futures if f.running()]
+
+
     except Exception as e:
         log.exception(e)
     except KeyboardInterrupt, SystemExit:
