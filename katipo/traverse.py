@@ -44,9 +44,17 @@ class Traverse(object):
     def run(self):
         try:
             # remove the url from the queue and add it to the 'searched' set so
-            # that it is never search again.
+            # that it is never searched again.
             url = self._datastore.pop_pending()
             if url is None:
+                return
+
+            # Tag the URL as being processed. If it cannot be tagged as
+            # processed that means that it is being processed by another process
+            # or thread, which means we should not process it here.
+            if not self._datastore.mark_as_processing(url):
+                log.debug('already processing %s' % url)
+                self._datastore.push_pending(url)
                 return
 
             self._datastore.add_to_searched(url)
