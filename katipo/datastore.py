@@ -27,3 +27,11 @@ class Datastore(object):
     def push_pending(self, url):
         log.debug('enqueue %s' % (url,))
         self._redis.sadd('pending', url)
+
+    def mark_as_processing(self, url):
+        netloc = urlparse.urlparse(url).netloc
+        key = 'processing:%s' % netloc
+        if not self._redis.setnx(key, True):
+            return False
+        self._redis.expire(key, 1)
+        return True
