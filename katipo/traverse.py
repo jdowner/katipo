@@ -27,7 +27,7 @@ class Traverse(object):
 
         """
         self._corpus = corpus
-        self._datastore = datastore.Datastore(corpus)
+        self._datastore = datastore.Datastore()
 
         for s in seeds:
             self._datastore.push_pending(s)

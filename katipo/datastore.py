@@ -1,15 +1,15 @@
 import hashlib
 import logging
 import time
+import urlparse
 
 import redis
 
 log = logging.getLogger(__name__)
 
 class Datastore(object):
-    def __init__(self, corpus, pool=None):
+    def __init__(self, pool=None):
         self._redis = redis.Redis(connection_pool=pool)
-        self._redis.sadd('corpus', corpus)
 
     def add_to_searched(self, url):
         log.debug('searched %s' % (url,))
