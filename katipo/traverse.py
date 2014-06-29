@@ -6,7 +6,6 @@ import string
 from bs4 import BeautifulSoup
 import nltk
 import requests
-import tornado.gen
 
 import datastore
 
@@ -21,16 +20,12 @@ class Traverse(object):
     traversal.
     """
 
-    def __init__(self, seeds, corpus):
+    def __init__(self, corpus):
         """
         Creates a Traversal object.
 
         """
         self._corpus = corpus
-        self._datastore = datastore.Datastore()
-
-        for s in seeds:
-            self._datastore.push_pending(s)
 
     @property
     def corpus(self):
@@ -40,24 +35,25 @@ class Traverse(object):
         headers = requests.head(url).headers
         return headers.get('content-type', '').startswith('text/html')
 
-    @tornado.gen.coroutine
-    def run(self):
+    def __call__(self):
         try:
+            db = datastore.Datastore()
+
             # remove the url from the queue and add it to the 'searched' set so
             # that it is never searched again.
-            url = self._datastore.pop_pending()
+            url = db.pop_pending()
             if url is None:
                 return
 
             # Tag the URL as being processed. If it cannot be tagged as
             # processed that means that it is being processed by another process
             # or thread, which means we should not process it here.
-            if not self._datastore.mark_as_processing(url):
+            if not db.mark_as_processing(url):
                 log.debug('already processing %s' % url)
-                self._datastore.push_pending(url)
+                db.push_pending(url)
                 return
 
-            self._datastore.add_to_searched(url)
+            db.add_to_searched(url)
 
             if not self.should_search(url):
                 return
@@ -70,7 +66,7 @@ class Traverse(object):
 
             # determine the score for the text
             score = self.score(text)
-            self._datastore.add_result(url, score)
+            db.add_result(url, score)
             log.info('score %d %s' % (score, url))
 
             for a in soup.find_all('a', href=True):
@@ -85,11 +81,11 @@ class Traverse(object):
                     continue
 
                 # if link is already searched, skip it
-                if self._datastore.is_searched(link):
+                if db.is_searched(link):
                     continue
 
                 # add link to pending searches
-                self._datastore.push_pending(link)
+                db.push_pending(link)
         except Exception as e:
             log.exception(e)
 
