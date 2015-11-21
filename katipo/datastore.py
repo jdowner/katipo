@@ -35,3 +35,17 @@ class Datastore(object):
             return False
         self.redis.expire(key, 1)
         return True
+
+    def corpus_add_word(self, word):
+        self.redis.sadd("corpus", word)
+
+    def corpus_remove_word(self, word):
+        self.redis.srem("corpus", word)
+
+    def corpus_list_words(self):
+        return list(self.redis.smembers("corpus"))
+
+    def corpus_clear(self):
+        words = self.corpus_list_words()
+        if words:
+            self.redis.srem("corpus", *words)
