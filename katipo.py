@@ -43,7 +43,7 @@ def main(argv=sys.argv[1:]):
 
     except Exception as e:
         log.exception(e)
-    except KeyboardInterrupt, SystemExit:
+    except (KeyboardInterrupt, SystemExit):
         log.info('exiting due to interrupt')
     finally:
         log.info('katipo stoppped')
